@@ -50,7 +50,9 @@ func (s *OpenAIService) StreamReply(ctx context.Context, convID, query string) *
 }
 
 func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Message, error) {
-	items, err := s.client.Conversations.Items.List(ctx, convID, conversations.ItemListParams{})
+	items, err := s.client.Conversations.Items.List(ctx, convID, conversations.ItemListParams{
+		Order: conversations.ItemListParamsOrderAsc,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +62,11 @@ func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Me
 		if item.Type != "message" {
 			continue
 		}
-		var sb strings.Builder
-		for _, part := range item.Content.OfMessageContentArray {
-			sb.WriteString(part.Text)
+		parts := make([]string, len(item.Content.OfMessageContentArray))
+		for i, part := range item.Content.OfMessageContentArray {
+			parts[i] = part.Text
 		}
-		out = append(out, models.Message{Role: item.Role, Content: sb.String()})
+		out = append(out, models.Message{Role: item.Role, Content: strings.Join(parts, " ")})
 	}
 	return out, nil
 }
