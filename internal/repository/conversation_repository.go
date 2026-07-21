@@ -45,7 +45,6 @@ func (r *ConversationRepository) List(ctx context.Context, userID string) ([]mod
 	return summaries, nil
 }
 
-
 func (r *ConversationRepository) Owns(ctx context.Context, userID, convID string) (found bool, title string, err error) {
 	var row models.Conversation
 	dbErr := r.DB.WithContext(ctx).

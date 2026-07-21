@@ -10,7 +10,7 @@ import "github.com/gin-gonic/gin"
 // @Success      200  {object}  map[string]string
 // @Router       /ping [get]
 func PingHandler(c *gin.Context) {
-  c.JSON(200, gin.H{
-    "message": "pong",
-  })
+	c.JSON(200, gin.H{
+		"message": "pong",
+	})
 }

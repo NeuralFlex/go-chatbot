@@ -18,7 +18,6 @@ func RequireUser(c *gin.Context) {
 	c.Next()
 }
 
-
 func UserID(c *gin.Context) string {
 	return c.GetString(userIDContextKey)
 }
