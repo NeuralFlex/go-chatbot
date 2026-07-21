@@ -6,3 +6,12 @@ type Conversation struct {
 	Title          string `gorm:"not null"`
 	CreatedAt      string `gorm:"not null"`
 }
+
+type ConversationMessage struct {
+	ID             uint   `gorm:"primaryKey;autoIncrement"`
+	ConversationID string `gorm:"index;not null"`
+	Role           string `gorm:"not null"`
+	Content        string `gorm:"not null"`
+	CreatedAt      string `gorm:"not null"`
+}
+

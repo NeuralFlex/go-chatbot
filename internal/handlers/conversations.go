@@ -58,7 +58,7 @@ func (h *ConversationsHandler) Get(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.OpenAI.History(ctx, convID)
+	messages, err := h.Repo.Messages(ctx, convID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

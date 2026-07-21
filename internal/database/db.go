@@ -21,7 +21,7 @@ func Open(path string) (*DB, error) {
 		return nil, err
 	}
 
-	if err := gormDB.AutoMigrate(&models.Conversation{}); err != nil {
+	if err := gormDB.AutoMigrate(&models.Conversation{}, &models.ConversationMessage{}); err != nil {
 		return nil, err
 	}
 

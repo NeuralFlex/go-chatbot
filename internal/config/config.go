@@ -7,6 +7,7 @@ type Config struct {
 	Model     string `env:"OPENAI_MODEL,required"`
 	Port      string `env:"PORT,required"`
 	DBPath    string `env:"DB_PATH,required"`
+	BaseURL   string `env:"OPENAI_BASE_URL"`
 }
 
 func Load() (Config, error) {

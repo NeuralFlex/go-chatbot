@@ -33,7 +33,7 @@ func main() {
   defer db.Close()
 
   repo := &repository.ConversationRepository{DB: db.GormDB}
-  openAI := services.OpenAIServiceInit(cfg.OpenAIKey, cfg.Model)
+  openAI := services.OpenAIServiceInit(cfg.OpenAIKey, cfg.Model, cfg.BaseURL)
   conv := &handlers.ConversationsHandler{Repo: repo, OpenAI: openAI}
 
   router := gin.Default()

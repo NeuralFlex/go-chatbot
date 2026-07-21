@@ -2,13 +2,10 @@ package services
 
 import (
 	"context"
-	"strings"
 
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/conversations"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/ssestream"
-	"github.com/openai/openai-go/v3/responses"
 
 	"go-chatbot/internal/models"
 )
@@ -20,51 +17,32 @@ type OpenAIService struct {
 	model  string
 }
 
-func OpenAIServiceInit(apiKey, model string) *OpenAIService {
+func OpenAIServiceInit(apiKey, model, baseURL string) *OpenAIService {
+	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
+	if baseURL != "" {
+		opts = append(opts, option.WithBaseURL(baseURL))
+	}
 	return &OpenAIService{
-		client: openai.NewClient(option.WithAPIKey(apiKey)),
+		client: openai.NewClient(opts...),
 		model:  model,
 	}
 }
 
-func (s *OpenAIService) NewConversation(ctx context.Context) (string, error) {
-	conv, err := s.client.Conversations.New(ctx, conversations.ConversationNewParams{})
-	if err != nil {
-		return "", err
-	}
-	return conv.ID, nil
-}
-
-func (s *OpenAIService) StreamReply(ctx context.Context, convID, query string) *ssestream.Stream[responses.ResponseStreamEventUnion] {
-	params := responses.ResponseNewParams{
-		Model: openai.ChatModel(s.model),
-		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.String(query),
-		},
-		Conversation: responses.ResponseNewParamsConversationUnion{
-			OfConversationObject: &responses.ResponseConversationParam{ID: convID},
-		},
-		Instructions: openai.String(systemPrompt),
-	}
-	return s.client.Responses.NewStreaming(ctx, params)
-}
-
-func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Message, error) {
-	items, err := s.client.Conversations.Items.List(ctx, convID, conversations.ItemListParams{})
-	if err != nil {
-		return nil, err
-	}
-
-	var out []models.Message
-	for _, item := range items.Data {
-		if item.Type != "message" {
-			continue
+func (s *OpenAIService) StreamReply(ctx context.Context, history []models.Message, query string) *ssestream.Stream[openai.ChatCompletionChunk] {
+	msgs := make([]openai.ChatCompletionMessageParamUnion, 0, len(history)+2)
+	msgs = append(msgs, openai.SystemMessage(systemPrompt))
+	for _, m := range history {
+		switch m.Role {
+		case "user":
+			msgs = append(msgs, openai.UserMessage(m.Content))
+		case "assistant":
+			msgs = append(msgs, openai.AssistantMessage(m.Content))
 		}
-		var sb strings.Builder
-		for _, part := range item.Content.OfMessageContentArray {
-			sb.WriteString(part.Text)
-		}
-		out = append(out, models.Message{Role: item.Role, Content: sb.String()})
 	}
-	return out, nil
+	msgs = append(msgs, openai.UserMessage(query))
+
+	return s.client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
+		Model:    openai.ChatModel(s.model),
+		Messages: msgs,
+	})
 }
