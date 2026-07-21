@@ -1,0 +1,148 @@
+definitions:
+  models.ChatRequest:
+    properties:
+      conversation_id:
+        type: string
+      query:
+        type: string
+    required:
+    - query
+    type: object
+  models.ConversationDetail:
+    properties:
+      id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/models.Message'
+        type: array
+      title:
+        type: string
+    type: object
+  models.ConversationSummary:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  models.Message:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API documentation for the go-chatbot service.
+  title: Go Chatbot API
+  version: "1.0"
+paths:
+  /chat:
+    post:
+      consumes:
+      - application/json
+      description: Omit conversation_id to start a new chat; include it to continue
+        one.
+      parameters:
+      - description: User ID
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      - description: Message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ChatRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Send a message (streams the reply as SSE)
+      tags:
+      - chat
+  /conversations:
+    get:
+      parameters:
+      - description: User ID
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ConversationSummary'
+            type: array
+      summary: List the user's conversations
+      tags:
+      - conversations
+  /conversations/{id}:
+    get:
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID
+        in: header
+        name: X-User-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ConversationDetail'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Open a conversation and load its history
+      tags:
+      - conversations
+  /ping:
+    get:
+      description: Returns pong to confirm the server is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ping the server
+      tags:
+      - health
+swagger: "2.0"
