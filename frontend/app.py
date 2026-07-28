@@ -58,22 +58,39 @@ with st.sidebar:
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
+        if msg.get("filename"):
+            st.caption(f"📎 {msg['filename']}")
         st.write(msg["content"])
 
-if query := st.chat_input("Message"):
-    st.session_state.messages.append({"role": "user", "content": query})
+st.caption("📎 You can attach one CSV file per message.")
+submission = st.chat_input("Message", accept_file=True, file_type=["csv"])
+
+if submission:
+    query = submission.text
+    uploaded_file = submission.files[0] if submission.files else None
+
+    st.session_state.messages.append(
+        {"role": "user", "content": query, "filename": uploaded_file.name if uploaded_file else ""}
+    )
     with st.chat_message("user"):
+        if uploaded_file:
+            st.caption(f"📎 {uploaded_file.name}")
         st.write(query)
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
         reply = ""
-        payload = {"query": query}
+        data = {"query": query}
         if st.session_state.conversation_id:
-            payload["conversation_id"] = st.session_state.conversation_id
+            data["conversation_id"] = st.session_state.conversation_id
+        files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")} if uploaded_file else None
+
+        spinner = st.spinner("Thinking...")
+        spinner.__enter__()
+        spinner_active = True
 
         with requests.post(
-            f"{BACKEND_URL}/chat", json=payload, headers=headers, stream=True
+            f"{BACKEND_URL}/chat", data=data, files=files, headers=headers, stream=True
         ) as r:
             event = None
             data_lines = []
@@ -82,17 +99,20 @@ if query := st.chat_input("Message"):
                 if line is None:
                     continue
                 if line == b"":
-                    data = "\n".join(data_lines)
+                    event_data = "\n".join(data_lines)
                     data_lines = []
                     if event == "conversation":
-                        st.session_state.conversation_id = data.strip()
+                        st.session_state.conversation_id = event_data.strip()
                     elif event == "message":
-                        reply += data
+                        if spinner_active:
+                            spinner.__exit__(None, None, None)
+                            spinner_active = False
+                        reply += event_data
                         placeholder.write(reply)
                     elif event == "done":
                         done = True
                     elif event == "error":
-                        st.error(data)
+                        st.error(event_data)
                         done = True
                     if done:
                         break
@@ -102,5 +122,8 @@ if query := st.chat_input("Message"):
                     event = line.split(":", 1)[1].strip()
                 elif line.startswith("data:"):
                     data_lines.append(line.split(":", 1)[1])
+
+        if spinner_active:
+            spinner.__exit__(None, None, None)
 
     st.session_state.messages.append({"role": "assistant", "content": reply})
