@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -19,7 +18,6 @@ func (r *ConversationRepository) Create(ctx context.Context, userID, convID, tit
 		ConversationID: convID,
 		UserID:         userID,
 		Title:          title,
-		CreatedAt:      time.Now().UTC().Format(time.RFC3339),
 	}
 	return r.DB.WithContext(ctx).Create(&row).Error
 }
