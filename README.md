@@ -10,13 +10,22 @@ Backend API chatbot built in Go and Gin, using the OpenAI SDK.
    go mod download
    ```
 
-2. Configure environment:
+2. Start a local Postgres database:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Stop it with `docker compose down` (add `-v` to also delete the data).
+
+3. Configure environment:
 
    ```bash
    cp .env.example .env
    ```
 
-   Then fill in `OPENAI_API_KEY` in `.env`.
+   Then fill in `OPENAI_API_KEY` in `.env`. The default `DATABASE_URL` already
+   matches the `docker-compose.yml` credentials.
 
 ## Run
 
@@ -32,7 +41,7 @@ Server starts on `PORT` (default `8080`). Swagger docs are available at `/swagge
 |---|---|
 | `cmd/server` | Entrypoint (`main.go`) |
 | `internal/config` | Env/config loading |
-| `internal/database` | SQLite connection setup |
+| `internal/database` | Postgres connection setup |
 | `internal/models` | DB models and DTOs |
 | `internal/repository` | Conversation data access |
 | `internal/services` | OpenAI SDK integration |

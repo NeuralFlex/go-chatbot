@@ -1,7 +1,7 @@
 package database
 
 import (
-	"github.com/glebarez/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"go-chatbot/internal/models"
@@ -11,12 +11,8 @@ type DB struct {
 	GormDB *gorm.DB
 }
 
-func Open(path string) (*DB, error) {
-	dsn := path + "?_pragma=journal_mode(WAL)" +
-		"&_pragma=busy_timeout(5000)" +
-		"&_pragma=synchronous(NORMAL)"
-
-	gormDB, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+func Open(dsn string) (*DB, error) {
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
