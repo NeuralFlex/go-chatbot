@@ -65,12 +65,20 @@ for msg in st.session_state.messages:
             st.caption(f"📎 {msg['filename']}")
         st.markdown(msg["content"])
 
+if st.session_state.get("send_error"):
+    st.error(st.session_state.send_error)
+    st.session_state.send_error = None
+
 if "selected_preset" not in st.session_state:
     st.session_state.selected_preset = None
 if "compose_key_gen" not in st.session_state:
     st.session_state.compose_key_gen = 0
 if "uploader_key_gen" not in st.session_state:
     st.session_state.uploader_key_gen = 0
+if "sending" not in st.session_state:
+    st.session_state.sending = False
+if "send_error" not in st.session_state:
+    st.session_state.send_error = None
 
 
 def _on_text_change():
@@ -89,6 +97,7 @@ else:
         "Attach ledger CSV",
         type=["csv"],
         key=f"uploader_{st.session_state.uploader_key_gen}",
+        disabled=st.session_state.sending,
     )
 
 can_compose = uploaded_file or have_conversation
@@ -111,12 +120,19 @@ if can_compose:
                 f"{i}. {preset['label']}",
                 key=f"preset_{preset['id']}",
                 use_container_width=True,
+                disabled=st.session_state.sending,
             ):
                 st.session_state.selected_preset = preset["id"]
         with toggle_col:
             toggle_label = "Hide" if st.session_state[expanded_key] else "Show"
-            if st.button(toggle_label, key=f"toggle_{preset['id']}", use_container_width=True):
+            if st.button(
+                toggle_label,
+                key=f"toggle_{preset['id']}",
+                use_container_width=True,
+                disabled=st.session_state.sending,
+            ):
                 st.session_state[expanded_key] = not st.session_state[expanded_key]
+                st.rerun()
 
         if st.session_state[expanded_key]:
             st.text(preset["text"])
@@ -131,54 +147,63 @@ if can_compose:
         on_change=_on_text_change,
     )
 
-    send_clicked = st.button("Send", type="primary")
+    send_clicked = st.button("Send", type="primary", disabled=st.session_state.sending)
 else:
     st.caption("Attach a ledger CSV to start.")
     send_clicked = False
 
-if send_clicked:
-    if st.session_state.selected_preset:
-        query = presets_by_id[st.session_state.selected_preset]["text"]
-    else:
-        query = st.session_state.get(compose_key, "").strip()
-
+if send_clicked and not st.session_state.sending:
+    query = (
+        presets_by_id[st.session_state.selected_preset]["text"]
+        if st.session_state.selected_preset
+        else st.session_state.get(compose_key, "").strip()
+    )
     if not query:
         st.warning("Select an analysis or type a question first.")
     else:
-        display_label = (
-            presets_by_id[st.session_state.selected_preset]["label"]
-            if st.session_state.selected_preset
-            else query
+        st.session_state.pending_query = query
+        st.session_state.pending_file = uploaded_file
+        st.session_state.sending = True
+        st.rerun()
+
+if st.session_state.sending:
+    query = st.session_state.pending_query
+    uploaded_file = st.session_state.pending_file
+    display_label = (
+        presets_by_id[st.session_state.selected_preset]["label"]
+        if st.session_state.selected_preset
+        else query
+    )
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": display_label,
+            "filename": uploaded_file.name if uploaded_file else "",
+        }
+    )
+    with st.chat_message("user"):
+        if uploaded_file:
+            st.caption(f"📎 {uploaded_file.name}")
+        st.markdown(display_label)
+
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        reply = ""
+        data = {"query": query}
+        if st.session_state.conversation_id:
+            data["conversation_id"] = st.session_state.conversation_id
+        files = (
+            {"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")}
+            if uploaded_file
+            else None
         )
 
-        st.session_state.messages.append(
-            {
-                "role": "user",
-                "content": display_label,
-                "filename": uploaded_file.name if uploaded_file else "",
-            }
-        )
-        with st.chat_message("user"):
-            if uploaded_file:
-                st.caption(f"📎 {uploaded_file.name}")
-            st.markdown(display_label)
+        spinner = st.spinner("Thinking...")
+        spinner.__enter__()
+        spinner_active = True
 
-        with st.chat_message("assistant"):
-            placeholder = st.empty()
-            reply = ""
-            data = {"query": query}
-            if st.session_state.conversation_id:
-                data["conversation_id"] = st.session_state.conversation_id
-            files = (
-                {"file": (uploaded_file.name, uploaded_file.getvalue(), "text/csv")}
-                if uploaded_file
-                else None
-            )
-
-            spinner = st.spinner("Thinking...")
-            spinner.__enter__()
-            spinner_active = True
-
+        try:
             with requests.post(
                 f"{BACKEND_URL}/chat", data=data, files=files, headers=headers, stream=True
             ) as r:
@@ -202,7 +227,7 @@ if send_clicked:
                         elif event == "done":
                             done = True
                         elif event == "error":
-                            st.error(event_data)
+                            st.session_state.send_error = event_data
                             done = True
                         if done:
                             break
@@ -212,14 +237,17 @@ if send_clicked:
                         event = line.split(":", 1)[1].strip()
                     elif line.startswith("data:"):
                         data_lines.append(line.split(":", 1)[1])
-
+        except (requests.exceptions.RequestException, UnicodeDecodeError) as e:
+            st.session_state.send_error = f"Request failed: {e}"
+        finally:
+            st.session_state.sending = False
             if spinner_active:
                 spinner.__exit__(None, None, None)
 
-        if reply:
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-        st.session_state.selected_preset = None
-        st.session_state.compose_key_gen += 1
-        if uploaded_file:
-            st.session_state.uploader_key_gen += 1
-        st.rerun()
+    if reply:
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+    st.session_state.selected_preset = None
+    st.session_state.compose_key_gen += 1
+    if uploaded_file:
+        st.session_state.uploader_key_gen += 1
+    st.rerun()
