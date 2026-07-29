@@ -24,3 +24,9 @@ type ConversationDetail struct {
 	Title    string    `json:"title"`
 	Messages []Message `json:"messages"`
 }
+
+type Preset struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Text  string `json:"text"`
+}

@@ -11,6 +11,7 @@ import (
 
 func Register(router *gin.Engine, conv *handlers.ConversationsHandler) {
 	router.GET("/ping", handlers.PingHandler)
+	router.GET("/presets", handlers.PresetsHandler)
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	chat := router.Group("")

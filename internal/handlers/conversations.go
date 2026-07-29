@@ -48,7 +48,7 @@ func (h *ConversationsHandler) Get(c *gin.Context) {
 	convID := c.Param("id")
 	ctx := c.Request.Context()
 
-	found, title, err := h.Repo.Owns(ctx, userID, convID)
+	found, title, filename, err := h.Repo.Owns(ctx, userID, convID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -62,6 +62,9 @@ func (h *ConversationsHandler) Get(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if filename != "" && len(messages) > 0 {
+		messages[0].Filename = filename
 	}
 
 	c.JSON(http.StatusOK, models.ConversationDetail{
