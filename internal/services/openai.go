@@ -2,8 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/openai/openai-go/v3"
@@ -13,54 +11,38 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 
 	"go-chatbot/internal/models"
+	"go-chatbot/internal/utils"
 )
 
-const systemPrompt = "You are a helpful assistant."
+const systemPrompt = `You are an experienced financial controller, an AI-powered financial assistant
+that uses finance domain intelligence to support controllers and accountants
+across recurring financial analysis scenarios, grounded in the company's own
+ledger data.
 
-const attachmentPrefix = "Attached file: "
+A CSV ledger data file is attached to this conversation. Base your answers
+strictly on that data.
 
-func BuildMessageWithFile(filename, csvContent, userPrompt string) string {
-	var b strings.Builder
-	b.WriteString(attachmentPrefix)
-	fmt.Fprintf(&b, "%d\n", len(filename))
-	b.WriteString(filename)
-	fmt.Fprintf(&b, "%d\n", len(csvContent))
-	b.WriteString(csvContent)
-	b.WriteString(userPrompt)
-	return b.String()
-}
+Scope: only answer questions related to finance, accounting, and the attached
+ledger data (e.g. cost analysis, revenue, margins, cash flow, budgeting,
+controller/accountant workflows), even if an off-topic request references or
+reuses the ledger data. If a request falls outside this scope, briefly
+decline and ask for a financial question instead. Do not answer it in any
+form, and do not offer a finance-themed version yourself — the decline is
+your entire response.
 
-func splitAttachment(content string) (filename, prompt string, ok bool) {
-	rest, found := strings.CutPrefix(content, attachmentPrefix)
-	if !found {
-		return "", content, false
-	}
+Output requirements: match the structure, format, and length constraints the
+user specifies exactly (e.g. bullet points, numbered sections, character
+limits). If the user gives no specific structure, use clear, controller-grade
+formatting (concise bullet points, real account names and amounts from the
+ledger, no filler). Do not open with an introduction or preamble. Go straight
+into the analysis.
 
-	nameLen, rest, ok := readLengthPrefixed(rest)
-	if !ok || nameLen > len(rest) {
-		return "", content, false
-	}
-	filename, rest = rest[:nameLen], rest[nameLen:]
+Ground every claim in the actual ledger data provided. Do not invent figures,
+accounts, or trends that aren't supported by the data.
 
-	csvLen, rest, ok := readLengthPrefixed(rest)
-	if !ok || csvLen > len(rest) {
-		return "", content, false
-	}
-	prompt = rest[csvLen:]
-	return filename, prompt, true
-}
-
-func readLengthPrefixed(s string) (n int, rest string, ok bool) {
-	i := strings.IndexByte(s, '\n')
-	if i == -1 {
-		return 0, "", false
-	}
-	n, err := strconv.Atoi(s[:i])
-	if err != nil || n < 0 {
-		return 0, "", false
-	}
-	return n, s[i+1:], true
-}
+If the user provides additional business context (e.g. "we just signed a new
+client" or "Q3 had a one-off expense"), incorporate it into your analysis
+rather than ignoring it.`
 
 type OpenAIService struct {
 	client openai.Client
@@ -104,7 +86,7 @@ func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Me
 		return nil, err
 	}
 
-	var out []models.Message
+	out := []models.Message{}
 	for _, item := range items.Data {
 		if item.Type != "message" {
 			continue
@@ -115,12 +97,10 @@ func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Me
 		}
 		content := strings.Join(parts, " ")
 
-		msg := models.Message{Role: item.Role, Content: content}
-		if filename, prompt, ok := splitAttachment(content); ok {
-			msg.Filename = filename
-			msg.Content = prompt
+		if _, prompt, ok := utils.SplitAttachment(content); ok {
+			content = prompt
 		}
-		out = append(out, msg)
+		out = append(out, models.Message{Role: item.Role, Content: content})
 	}
 	return out, nil
 }

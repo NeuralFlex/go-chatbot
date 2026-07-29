@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -9,7 +10,7 @@ import (
 
 	"go-chatbot/internal/middleware"
 	"go-chatbot/internal/models"
-	"go-chatbot/internal/services"
+	"go-chatbot/internal/utils"
 )
 
 const maxFileSize = 300 << 10 // 300KB — keeps the inlined CSV well under the model's context window
@@ -74,12 +75,12 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if err := h.Repo.Create(ctx, userID, convID, truncateTitle(req.Query)); err != nil {
+		if err := h.Repo.Create(ctx, userID, convID, truncateTitle(req.Query), filename); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 	} else {
-		found, _, err := h.Repo.Owns(ctx, userID, convID)
+		found, _, _, err := h.Repo.Owns(ctx, userID, convID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -92,10 +93,10 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 
 	message := req.Query
 	if filename != "" {
-		message = services.BuildMessageWithFile(filename, fileContent, req.Query)
+		message = utils.BuildMessageWithFile(filename, fileContent, req.Query)
 	}
 
-	stream := h.OpenAI.StreamReply(ctx, convID, message)
+	stream := h.OpenAI.StreamReply(context.Background(), convID, message)
 	defer stream.Close()
 
 	firstEvent := isNew
