@@ -79,10 +79,6 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if err := h.Repo.Create(ctx, userID, convID, truncateTitle(req.Query), filename); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
 	} else {
 		found, _, _, err := h.Repo.Owns(ctx, userID, convID)
 		if err != nil {
@@ -105,11 +101,6 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 
 	firstEvent := isNew
 	c.Stream(func(w io.Writer) bool {
-		if firstEvent {
-			firstEvent = false
-			c.SSEvent("conversation", convID)
-			return true
-		}
 		if !stream.Next() {
 			if err := stream.Err(); err != nil {
 				c.SSEvent("error", err.Error())
@@ -117,6 +108,14 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 				c.SSEvent("done", "[DONE]")
 			}
 			return false
+		}
+		if firstEvent {
+			firstEvent = false
+			if err := h.Repo.Create(ctx, userID, convID, truncateTitle(req.Query), filename); err != nil {
+				c.SSEvent("error", err.Error())
+				return false
+			}
+			c.SSEvent("conversation", convID)
 		}
 		event := stream.Current()
 		if event.Type == "response.output_text.delta" {
