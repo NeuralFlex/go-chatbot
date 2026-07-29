@@ -28,15 +28,15 @@ func Open(dsn string) (*DB, error) {
 		return nil, err
 	}
 
+	if err := gormDB.AutoMigrate(&models.Conversation{}); err != nil {
+		return nil, err
+	}
+
 	goose.SetBaseFS(migrationsFS)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return nil, err
 	}
 	if err := goose.Up(sqlDB, "migrations"); err != nil {
-		return nil, err
-	}
-
-	if err := gormDB.AutoMigrate(&models.Conversation{}); err != nil {
 		return nil, err
 	}
 
