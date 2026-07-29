@@ -3,21 +3,27 @@ package handlers
 import (
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"go-chatbot/internal/middleware"
 	"go-chatbot/internal/models"
+	"go-chatbot/internal/services"
 )
+
+const maxFileSize = 300 << 10 // 300KB — keeps the inlined CSV well under the model's context window
 
 // Send godoc
 // @Summary      Send a message (streams the reply as SSE)
-// @Description  Omit conversation_id to start a new chat; include it to continue one.
+// @Description  Omit conversation_id to start a new chat; include it to continue one. Attach a .csv file (optional, 300KB max) to reference it in this and later turns.
 // @Tags         chat
-// @Accept       json
+// @Accept       multipart/form-data
 // @Produce      text/event-stream
-// @Param        X-User-ID  header  string              true  "User ID"
-// @Param        request    body    models.ChatRequest  true  "Message"
+// @Param        X-User-ID        header  string  true   "User ID"
+// @Param        query            formData  string  true  "Message"
+// @Param        conversation_id  formData  string  false "Conversation ID"
+// @Param        file             formData  file    false "CSV attachment (300KB max)"
 // @Success      200        {string}  string  "SSE stream"
 // @Failure      400        {object}  map[string]string
 // @Failure      404        {object}  map[string]string
@@ -27,9 +33,35 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req models.ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	var fileContent string
+	var filename string
+	if header, err := c.FormFile("file"); err == nil {
+		if !strings.HasSuffix(strings.ToLower(header.Filename), ".csv") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "only .csv files are supported"})
+			return
+		}
+		if header.Size > maxFileSize {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "file exceeds 300KB limit"})
+			return
+		}
+		f, err := header.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer f.Close()
+		data, err := io.ReadAll(f)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		filename = header.Filename
+		fileContent = string(data)
 	}
 
 	convID := req.ConversationID
@@ -58,7 +90,12 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 		}
 	}
 
-	stream := h.OpenAI.StreamReply(ctx, convID, req.Query)
+	message := req.Query
+	if filename != "" {
+		message = services.BuildMessageWithFile(filename, fileContent, req.Query)
+	}
+
+	stream := h.OpenAI.StreamReply(ctx, convID, message)
 	defer stream.Close()
 
 	firstEvent := isNew

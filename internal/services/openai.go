@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/openai/openai-go/v3"
@@ -14,6 +16,51 @@ import (
 )
 
 const systemPrompt = "You are a helpful assistant."
+
+const attachmentPrefix = "Attached file: "
+
+func BuildMessageWithFile(filename, csvContent, userPrompt string) string {
+	var b strings.Builder
+	b.WriteString(attachmentPrefix)
+	fmt.Fprintf(&b, "%d\n", len(filename))
+	b.WriteString(filename)
+	fmt.Fprintf(&b, "%d\n", len(csvContent))
+	b.WriteString(csvContent)
+	b.WriteString(userPrompt)
+	return b.String()
+}
+
+func splitAttachment(content string) (filename, prompt string, ok bool) {
+	rest, found := strings.CutPrefix(content, attachmentPrefix)
+	if !found {
+		return "", content, false
+	}
+
+	nameLen, rest, ok := readLengthPrefixed(rest)
+	if !ok || nameLen > len(rest) {
+		return "", content, false
+	}
+	filename, rest = rest[:nameLen], rest[nameLen:]
+
+	csvLen, rest, ok := readLengthPrefixed(rest)
+	if !ok || csvLen > len(rest) {
+		return "", content, false
+	}
+	prompt = rest[csvLen:]
+	return filename, prompt, true
+}
+
+func readLengthPrefixed(s string) (n int, rest string, ok bool) {
+	i := strings.IndexByte(s, '\n')
+	if i == -1 {
+		return 0, "", false
+	}
+	n, err := strconv.Atoi(s[:i])
+	if err != nil || n < 0 {
+		return 0, "", false
+	}
+	return n, s[i+1:], true
+}
 
 type OpenAIService struct {
 	client openai.Client
@@ -66,7 +113,14 @@ func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Me
 		for i, part := range item.Content.OfMessageContentArray {
 			parts[i] = part.Text
 		}
-		out = append(out, models.Message{Role: item.Role, Content: strings.Join(parts, " ")})
+		content := strings.Join(parts, " ")
+
+		msg := models.Message{Role: item.Role, Content: content}
+		if filename, prompt, ok := splitAttachment(content); ok {
+			msg.Filename = filename
+			msg.Content = prompt
+		}
+		out = append(out, msg)
 	}
 	return out, nil
 }
