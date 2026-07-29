@@ -126,4 +126,5 @@ if submission:
         if spinner_active:
             spinner.__exit__(None, None, None)
 
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+    if reply:
+        st.session_state.messages.append({"role": "assistant", "content": reply})
