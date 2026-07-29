@@ -233,6 +233,8 @@ if st.session_state.sending:
                         data_lines.append(line.split(":", 1)[1])
         except (requests.exceptions.RequestException, UnicodeDecodeError) as e:
             st.session_state.send_error = f"Request failed: {e}"
+            if st.session_state.messages and st.session_state.messages[-1]["content"] == query:
+                st.session_state.messages.pop()
         finally:
             st.session_state.sending = False
             if spinner_active:
