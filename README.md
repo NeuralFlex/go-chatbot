@@ -1,6 +1,7 @@
 # go-chatbot
 
-Backend API chatbot built in Go and Gin, using the OpenAI SDK.
+Backend API for an AI-powered financial controller assistant chatbot, built in Go and
+Gin, using the OpenAI SDK.
 
 ## Setup
 
@@ -41,10 +42,10 @@ Server starts on `PORT` (default `8080`). Swagger docs are available at `/swagge
 |---|---|
 | `cmd/server` | Entrypoint (`main.go`) |
 | `internal/config` | Env/config loading |
-| `internal/database` | Postgres connection setup |
+| `internal/database` | Postgres connection setup, goose migrations, GORM auto-migrate |
 | `internal/models` | DB models and DTOs |
 | `internal/repository` | Conversation data access |
-| `internal/services` | OpenAI SDK integration |
+| `internal/services` | OpenAI SDK integration, system prompt, preset prompts |
 | `internal/handlers` | HTTP request handlers |
 | `internal/routes` | Route registration |
 | `internal/middleware` | Gin middleware (user identification) |
