@@ -13,11 +13,12 @@ type ConversationRepository struct {
 	DB *gorm.DB
 }
 
-func (r *ConversationRepository) Create(ctx context.Context, userID, convID, title string) error {
+func (r *ConversationRepository) Create(ctx context.Context, userID, convID, title, filename string) error {
 	row := models.Conversation{
 		ConversationID: convID,
 		UserID:         userID,
 		Title:          title,
+		Filename:       filename,
 	}
 	return r.DB.WithContext(ctx).Create(&row).Error
 }
@@ -43,15 +44,15 @@ func (r *ConversationRepository) List(ctx context.Context, userID string) ([]mod
 	return summaries, nil
 }
 
-func (r *ConversationRepository) Owns(ctx context.Context, userID, convID string) (found bool, title string, err error) {
+func (r *ConversationRepository) Owns(ctx context.Context, userID, convID string) (found bool, title, filename string, err error) {
 	var row models.Conversation
 	dbErr := r.DB.WithContext(ctx).
 		First(&row, "conversation_id = ? AND user_id = ?", convID, userID).Error
 	if errors.Is(dbErr, gorm.ErrRecordNotFound) {
-		return false, "", nil
+		return false, "", "", nil
 	}
 	if dbErr != nil {
-		return false, "", dbErr
+		return false, "", "", dbErr
 	}
-	return true, row.Title, nil
+	return true, row.Title, row.Filename, nil
 }
