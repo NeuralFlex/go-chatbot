@@ -65,6 +65,10 @@ for msg in st.session_state.messages:
             st.caption(f"📎 {msg['filename']}")
         st.markdown(msg["content"])
 
+if st.session_state.get("send_error"):
+    st.error(st.session_state.send_error)
+    st.session_state.send_error = None
+
 if "selected_preset" not in st.session_state:
     st.session_state.selected_preset = None
 if "compose_key_gen" not in st.session_state:
@@ -73,6 +77,8 @@ if "uploader_key_gen" not in st.session_state:
     st.session_state.uploader_key_gen = 0
 if "sending" not in st.session_state:
     st.session_state.sending = False
+if "send_error" not in st.session_state:
+    st.session_state.send_error = None
 
 
 def _on_text_change():
@@ -221,7 +227,7 @@ if st.session_state.sending:
                         elif event == "done":
                             done = True
                         elif event == "error":
-                            st.error(event_data)
+                            st.session_state.send_error = event_data
                             done = True
                         if done:
                             break
@@ -231,6 +237,8 @@ if st.session_state.sending:
                         event = line.split(":", 1)[1].strip()
                     elif line.startswith("data:"):
                         data_lines.append(line.split(":", 1)[1])
+        except (requests.exceptions.RequestException, UnicodeDecodeError) as e:
+            st.session_state.send_error = f"Request failed: {e}"
         finally:
             st.session_state.sending = False
             if spinner_active:
