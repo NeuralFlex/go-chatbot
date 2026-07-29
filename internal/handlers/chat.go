@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -96,7 +95,7 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 		message = utils.BuildMessageWithFile(filename, fileContent, req.Query)
 	}
 
-	stream := h.OpenAI.StreamReply(context.Background(), convID, message)
+	stream := h.OpenAI.StreamReply(ctx, convID, message)
 	defer stream.Close()
 
 	firstEvent := isNew
