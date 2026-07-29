@@ -46,6 +46,7 @@ Server starts on `PORT` (default `8080`). Swagger docs are available at `/swagge
 | `internal/models` | DB models and DTOs |
 | `internal/repository` | Conversation data access |
 | `internal/services` | OpenAI SDK integration, system prompt, preset prompts |
+| `internal/utils` | Attachment message encoding/parsing |
 | `internal/handlers` | HTTP request handlers |
 | `internal/routes` | Route registration |
 | `internal/middleware` | Gin middleware (user identification) |
