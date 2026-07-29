@@ -20,7 +20,7 @@ func BuildMessageWithFile(filename, csvContent, userPrompt string) string {
 }
 
 func SplitAttachment(content string) (filename, prompt string, ok bool) {
-	markerStart := strings.LastIndex(content, attachmentPrefix)
+	markerStart := strings.Index(content, attachmentPrefix)
 	if markerStart == -1 {
 		return "", content, false
 	}
