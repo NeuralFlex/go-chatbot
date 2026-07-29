@@ -1,13 +1,4 @@
 definitions:
-  models.ChatRequest:
-    properties:
-      conversation_id:
-        type: string
-      query:
-        type: string
-    required:
-    - query
-    type: object
   models.ConversationDetail:
     properties:
       id:
@@ -32,21 +23,33 @@ definitions:
     properties:
       content:
         type: string
+      filename:
+        type: string
       role:
+        type: string
+    type: object
+  models.Preset:
+    properties:
+      id:
+        type: string
+      label:
+        type: string
+      text:
         type: string
     type: object
 info:
   contact: {}
-  description: API documentation for the go-chatbot service.
-  title: Go Chatbot API
+  description: API documentation for the assistant-controller-chatbot service.
+  title: Assistant Controller Chatbot API
   version: "1.0"
 paths:
   /chat:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: Omit conversation_id to start a new chat; include it to continue
-        one.
+        one. A .csv file (optional, 300KB max) may only be attached when starting
+        a new chat.
       parameters:
       - description: User ID
         in: header
@@ -54,11 +57,18 @@ paths:
         required: true
         type: string
       - description: Message
-        in: body
-        name: request
+        in: formData
+        name: query
         required: true
-        schema:
-          $ref: '#/definitions/models.ChatRequest'
+        type: string
+      - description: Conversation ID
+        in: formData
+        name: conversation_id
+        type: string
+      - description: CSV attachment (300KB max)
+        in: formData
+        name: file
+        type: file
       produces:
       - text/event-stream
       responses:
@@ -145,4 +155,18 @@ paths:
       summary: Ping the server
       tags:
       - health
+  /presets:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Preset'
+            type: array
+      summary: List the available preset analysis prompts
+      tags:
+      - presets
 swagger: "2.0"

@@ -129,5 +129,5 @@ func truncateTitle(query string) string {
 	if len(query) <= maxLen {
 		return query
 	}
-	return query[:maxLen]
+	return query[:maxLen] + "..."
 }
