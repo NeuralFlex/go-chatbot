@@ -17,7 +17,7 @@ const maxFileSize = 300 << 10 // 300KB — keeps the inlined CSV well under the 
 
 // Send godoc
 // @Summary      Send a message (streams the reply as SSE)
-// @Description  Omit conversation_id to start a new chat; include it to continue one. Attach a .csv file (optional, 300KB max) to reference it in this and later turns.
+// @Description  Omit conversation_id to start a new chat; include it to continue one. A .csv file (optional, 300KB max) may only be attached when starting a new chat.
 // @Tags         chat
 // @Accept       multipart/form-data
 // @Produce      text/event-stream
@@ -42,6 +42,10 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 	var fileContent string
 	var filename string
 	if header, err := c.FormFile("file"); err == nil {
+		if req.ConversationID != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "a file can only be attached when starting a new conversation"})
+			return
+		}
 		if !strings.HasSuffix(strings.ToLower(header.Filename), ".csv") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "only .csv files are supported"})
 			return

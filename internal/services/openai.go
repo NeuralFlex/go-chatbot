@@ -95,12 +95,14 @@ func (s *OpenAIService) History(ctx context.Context, convID string) ([]models.Me
 		for i, part := range item.Content.OfMessageContentArray {
 			parts[i] = part.Text
 		}
-		content := strings.Join(parts, " ")
-
-		if _, prompt, ok := utils.SplitAttachment(content); ok {
-			content = prompt
-		}
-		out = append(out, models.Message{Role: item.Role, Content: content})
+		out = append(out, models.Message{Role: item.Role, Content: strings.Join(parts, " ")})
 	}
+
+	if len(out) > 0 {
+		if _, prompt, ok := utils.SplitAttachment(out[0].Content); ok {
+			out[0].Content = prompt
+		}
+	}
+
 	return out, nil
 }
