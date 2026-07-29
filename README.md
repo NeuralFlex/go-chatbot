@@ -1,4 +1,4 @@
-# go-chatbot
+# assistant-controller-chatbot
 
 Backend API for an AI-powered financial controller assistant chatbot, built in Go and
 Gin, using the OpenAI SDK.
@@ -35,6 +35,12 @@ go run ./cmd/server
 ```
 
 Server starts on `PORT` (default `8080`). Swagger docs are available at `/swagger/index.html`.
+
+To regenerate docs after changing handlers or `@` annotations:
+
+```bash
+swag init -g cmd/server/main.go -o docs
+```
 
 ## Folder structure
 

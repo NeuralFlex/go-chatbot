@@ -17,9 +17,9 @@ const docTemplate = `{
     "paths": {
         "/chat": {
             "post": {
-                "description": "Omit conversation_id to start a new chat; include it to continue one.",
+                "description": "Omit conversation_id to start a new chat; include it to continue one. A .csv file (optional, 300KB max) may only be attached when starting a new chat.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "text/event-stream"
@@ -37,13 +37,23 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "string",
                         "description": "Message",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.ChatRequest"
-                        }
+                        "name": "query",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversation_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "CSV attachment (300KB max)",
+                        "name": "file",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -171,23 +181,31 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/presets": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "presets"
+                ],
+                "summary": "List the available preset analysis prompts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Preset"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "models.ChatRequest": {
-            "type": "object",
-            "required": [
-                "query"
-            ],
-            "properties": {
-                "conversation_id": {
-                    "type": "string"
-                },
-                "query": {
-                    "type": "string"
-                }
-            }
-        },
         "models.ConversationDetail": {
             "type": "object",
             "properties": {
@@ -225,7 +243,24 @@ const docTemplate = `{
                 "content": {
                     "type": "string"
                 },
+                "filename": {
+                    "type": "string"
+                },
                 "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Preset": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "text": {
                     "type": "string"
                 }
             }
@@ -239,8 +274,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Go Chatbot API",
-	Description:      "API documentation for the go-chatbot service.",
+	Title:            "Assistant Controller Chatbot API",
+	Description:      "API documentation for the assistant-controller-chatbot service.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

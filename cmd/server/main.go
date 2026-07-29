@@ -15,9 +15,9 @@ import (
 	"go-chatbot/internal/services"
 )
 
-// @title        Go Chatbot API
+// @title        Assistant Controller Chatbot API
 // @version      1.0
-// @description  API documentation for the go-chatbot service.
+// @description  API documentation for the assistant-controller-chatbot service.
 func main() {
 	_ = godotenv.Load() // ignore error: .env may be absent (e.g. Docker sets env vars directly)
 

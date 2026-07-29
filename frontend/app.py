@@ -8,8 +8,8 @@ load_dotenv()
 
 BACKEND_URL = os.environ["BACKEND_URL"]
 
-st.set_page_config(page_title="go-chatbot")
-st.title("go-chatbot")
+st.set_page_config(page_title="assistant-controller-chatbot")
+st.title("assistant-controller-chatbot")
 
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
@@ -69,10 +69,10 @@ if st.session_state.get("send_error"):
     st.error(st.session_state.send_error)
     st.session_state.send_error = None
 
-if "selected_preset" not in st.session_state:
-    st.session_state.selected_preset = None
 if "compose_key_gen" not in st.session_state:
     st.session_state.compose_key_gen = 0
+if "compose_prefill" not in st.session_state:
+    st.session_state.compose_prefill = None
 if "uploader_key_gen" not in st.session_state:
     st.session_state.uploader_key_gen = 0
 if "sending" not in st.session_state:
@@ -80,13 +80,7 @@ if "sending" not in st.session_state:
 if "send_error" not in st.session_state:
     st.session_state.send_error = None
 
-
-def _on_text_change():
-    st.session_state.selected_preset = None
-
-
 presets = requests.get(f"{BACKEND_URL}/presets").json()
-presets_by_id = {p["id"]: p for p in presets}
 
 have_conversation = st.session_state.conversation_id is not None
 
@@ -122,7 +116,9 @@ if can_compose:
                 use_container_width=True,
                 disabled=st.session_state.sending,
             ):
-                st.session_state.selected_preset = preset["id"]
+                st.session_state.compose_prefill = preset["text"]
+                st.session_state.compose_key_gen += 1
+                st.rerun()
         with toggle_col:
             toggle_label = "Hide" if st.session_state[expanded_key] else "Show"
             if st.button(
@@ -137,27 +133,30 @@ if can_compose:
         if st.session_state[expanded_key]:
             st.text(preset["text"])
 
-    if st.session_state.selected_preset:
-        st.info(f"Selected: {presets_by_id[st.session_state.selected_preset]['label']}")
-
     compose_key = f"compose_text_{st.session_state.compose_key_gen}"
+    if st.session_state.compose_prefill is not None:
+        st.session_state[compose_key] = st.session_state.compose_prefill
+        st.session_state.compose_prefill = None
     st.text_area(
-        "Or type your own question (typing here deselects any ready-made question above)",
+        "Question (click a ready-made question above to fill this in, then edit if needed)",
         key=compose_key,
-        on_change=_on_text_change,
     )
 
-    send_clicked = st.button("Send", type="primary", disabled=st.session_state.sending)
+    send_col, clear_col = st.columns([5, 1])
+    with send_col:
+        send_clicked = st.button(
+            "Send", type="primary", use_container_width=True, disabled=st.session_state.sending
+        )
+    with clear_col:
+        if st.button("Clear", use_container_width=True, disabled=st.session_state.sending):
+            st.session_state.compose_key_gen += 1
+            st.rerun()
 else:
     st.caption("Attach a ledger CSV to start.")
     send_clicked = False
 
 if send_clicked and not st.session_state.sending:
-    query = (
-        presets_by_id[st.session_state.selected_preset]["text"]
-        if st.session_state.selected_preset
-        else st.session_state.get(compose_key, "").strip()
-    )
+    query = st.session_state.get(compose_key, "").strip()
     if not query:
         st.warning("Select an analysis or type a question first.")
     else:
@@ -169,23 +168,18 @@ if send_clicked and not st.session_state.sending:
 if st.session_state.sending:
     query = st.session_state.pending_query
     uploaded_file = st.session_state.pending_file
-    display_label = (
-        presets_by_id[st.session_state.selected_preset]["label"]
-        if st.session_state.selected_preset
-        else query
-    )
 
     st.session_state.messages.append(
         {
             "role": "user",
-            "content": display_label,
+            "content": query,
             "filename": uploaded_file.name if uploaded_file else "",
         }
     )
     with st.chat_message("user"):
         if uploaded_file:
             st.caption(f"📎 {uploaded_file.name}")
-        st.markdown(display_label)
+        st.markdown(query)
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
@@ -239,6 +233,8 @@ if st.session_state.sending:
                         data_lines.append(line.split(":", 1)[1])
         except (requests.exceptions.RequestException, UnicodeDecodeError) as e:
             st.session_state.send_error = f"Request failed: {e}"
+            if st.session_state.messages and st.session_state.messages[-1]["content"] == query:
+                st.session_state.messages.pop()
         finally:
             st.session_state.sending = False
             if spinner_active:
@@ -246,7 +242,6 @@ if st.session_state.sending:
 
     if reply:
         st.session_state.messages.append({"role": "assistant", "content": reply})
-    st.session_state.selected_preset = None
     st.session_state.compose_key_gen += 1
     if uploaded_file:
         st.session_state.uploader_key_gen += 1
