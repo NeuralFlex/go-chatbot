@@ -38,12 +38,14 @@ with st.sidebar:
         st.session_state.user_id = None
         st.session_state.conversation_id = None
         st.session_state.messages = []
+        st.session_state.compose_key_gen = st.session_state.get("compose_key_gen", 0) + 1
         st.rerun()
 
     st.header("Conversations")
     if st.button("New chat"):
         st.session_state.conversation_id = None
         st.session_state.messages = []
+        st.session_state.compose_key_gen = st.session_state.get("compose_key_gen", 0) + 1
         st.rerun()
 
     resp = requests.get(f"{BACKEND_URL}/conversations", headers=headers)
@@ -54,6 +56,7 @@ with st.sidebar:
             ).json()
             st.session_state.conversation_id = conv["id"]
             st.session_state.messages = detail.get("messages") or []
+            st.session_state.compose_key_gen = st.session_state.get("compose_key_gen", 0) + 1
             st.rerun()
 
 for msg in st.session_state.messages:
