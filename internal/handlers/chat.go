@@ -12,18 +12,18 @@ import (
 	"go-chatbot/internal/services"
 )
 
-const maxFileSize = 10 << 20 // 10MB
+const maxFileSize = 300 << 10 // 300KB — keeps the inlined CSV well under the model's context window
 
 // Send godoc
 // @Summary      Send a message (streams the reply as SSE)
-// @Description  Omit conversation_id to start a new chat; include it to continue one. Attach a .csv file (optional, 10MB max) to reference it in this and later turns.
+// @Description  Omit conversation_id to start a new chat; include it to continue one. Attach a .csv file (optional, 300KB max) to reference it in this and later turns.
 // @Tags         chat
 // @Accept       multipart/form-data
 // @Produce      text/event-stream
 // @Param        X-User-ID        header  string  true   "User ID"
 // @Param        query            formData  string  true  "Message"
 // @Param        conversation_id  formData  string  false "Conversation ID"
-// @Param        file             formData  file    false "CSV attachment"
+// @Param        file             formData  file    false "CSV attachment (300KB max)"
 // @Success      200        {string}  string  "SSE stream"
 // @Failure      400        {object}  map[string]string
 // @Failure      404        {object}  map[string]string
@@ -46,7 +46,7 @@ func (h *ConversationsHandler) Send(c *gin.Context) {
 			return
 		}
 		if header.Size > maxFileSize {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "file exceeds 10MB limit"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "file exceeds 300KB limit"})
 			return
 		}
 		f, err := header.Open()
